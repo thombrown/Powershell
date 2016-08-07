@@ -1,18 +1,102 @@
 ﻿<#
-    -----------------------------------------------------------------------------
-    GENERAL FUNCTIONS
-    -----------------------------------------------------------------------------
+
+.SYNOPSIS
+This is a Powershell Module for VMware AppVolumes
+
+.DESCRIPTION
+This module leverages the RESTful API built in to VMware AppVolumes.
+
+.NOTES
+Author: Thomas Brown
+
+It was written against AppVolumes version 2.11 and has not been tested against any other version as of 8/7/16.
+
+.LINK
+http://github.com/thombrown
+http://www.thomas-brown.com
+VMware AppVolumes API Reference Guide: https://chrisdhalstead.net/2015/12/30/vmware-app-volumes-api-reference/
 #>
+
+
+function Set-AppVolumeAssignment
+{
+  <#
+  .DESCRIPTION
+   This function is used to assign and unassign appstacks.  Please note that the entity must be in Directory Services format, Ex: CN=vi-admin,CN=users,DC=lab,DC=local.  This is a limitation of the AppVolumes API
+
+  .PARAMETER AssignmentType
+    Tells the API if you wish to assign or unassign the appstack
+  .PARAMETER AppID
+    This is the ID of the appstack you wish to modify.  If you don't know the ID use the Get-AppVolumes function
+  .PARAMETER entityType
+    This tells AppVolumes what type of entity you would like to assign the appstack to.  Options are computer, user, group, or orgunit
+  .PARAMETER entity
+    This is the actual user, computer, orgunit or group that you want to assign. Please note that the entity must be in Directory Services format, Ex: CN=vi-admin,CN=users,DC=lab,DC=local.  This is a limitation of the AppVolumes API
+  .PARAMETER instant
+    If true, this will instantly attach or detach the appstack.  If false, this will attach or detach on next login/logout.
+
+  #>
+  
+  param(
+    [parameter(Mandatory=$true)]
+    [ValidateSet('assign','unassign',ignorecase=$true)]
+    [string]$AssignmentType,
+    
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$AppID,
+    
+    [parameter(Mandatory=$true)]
+    [ValidateSet('computer','user', 'group', 'orgunit', ignorecase=$true)]
+    [string]$entitytype,
+    
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$entity,
+    
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [boolean]$instant
+        
+    #CN%3Dvi-admin%2CCN%3DUsers%2CDC%3Dlab%2CDC%3Dlocal
+    
+
+    )
+  
+    try{
+      $r = (Invoke-RestMethod -WebSession $Login -Method Post -Uri "http://$server/cv_api/assignments?action_type=$AssignmentType&id=$AppID&assignments%5B0%5D%5Bentity_type%5D=$entitytype&assignments%5B0%5D%5Bpath%5D=$entity&rtime=($instant.toString())&mount_prefix=")
+      if ($r.warning){$r = 'The entity needs to be in Directory Services format, Ex: CN=vi-admin,CN=users,DC=lab,DC=local'}
+    }
+    catch
+    {
+        if ($_.Exception.Message -match '401')
+        {   
+            
+            write-host 'An error occurred'
+        }
+    }
+    return $r
+}
+
 function Connect-AppVolumes
 {
   <#
+  .DESCRIPTION
+   This function is used to Connect to the AppVolumes server.
 
+  .PARAMETER Server
+    Specifies the server you wish to connect.  Can be FQDN or IP address.
+  .PARAMETER username
+    The user you wish to connect as.  If left blank you will be prompted for credentials.
+  .PARAMETER password
+    The password for the user you wish to connect as. If left blank you will be propmted for credentials.
   #>
     [CmdletBinding()]
 
     param(
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
+    [String]$server,
 
     [parameter(Mandatory=$false)]
     [ValidateNotNullOrEmpty()]
@@ -41,7 +125,7 @@ function Connect-AppVolumes
 
     if ($_.Exception.Message -match '401')
         {   
-            
+            write-host 'An error occurred'
             
         }
 
@@ -50,41 +134,17 @@ function Connect-AppVolumes
       Set-Variable -Name Server -value $server -Scope global
       
 }
-
-function Set-AppVolumeAssignment
+function Set-AppVolumesWritableVolumeEnabled
 {
   <#
+  .DESCRIPTION
+   This function is used to enable a writable volume.
 
-  #>
+  .PARAMETER AppID
+  This tells the API which writable volume you wish to modify. If you do not know the ID use Get-AppVolumesWritableVolumes
   
-  param(
-    [parameter(Mandatory=$true)]
-    [ValidateSet('assign','unassign',ignorecase=$true)]
-    [string]$AssignmentType
-
-    )
-  
-    try{
-      $results = (Invoke-RestMethod -WebSession $Login -Method Post -Uri "http://$server/cv_api/assignments?action_type=$AssignmentType&id=1&assignments%5B0%5D%5Bentity_type%5D=User&assignments%5B0%5D%5Bpath%5D=CN%3Dvi-admin%2CCN%3DUsers%2CDC%3Dlab%2CDC%3Dlocal&rtime=true&mount_prefix=").Content | ConvertFrom-Json
-    }
-    catch
-    {
-        if ($_.Exception.Message -match '401')
-        {   
-            Connect-AppVolumes
-            
-        }
-    }
-    return $results
-}
-
-
-#Should probably restructure data
-function Get-AppVolumeAssignments
-{
-  <#
-
   #>
+
   param(
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -92,36 +152,64 @@ function Get-AppVolumeAssignments
 
     )
 
-    try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks/$AppID/assignments").Content | ConvertFrom-Json)
+  try{
+      $r = (Invoke-WebRequest -WebSession $Login -Method Post -Uri "http://$server/cv_api/writables/disable?volumes%5B%5D=$AppID").content
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
     }
-    $obj = New-Object System.Object
-    $i=0
-    while ($i -ne $r.name.Length){
-    
-    $obj | Add-Member –Type NoteProperty –Name Assignment[$i] –Value $r.name[$i].Substring($r.name[$i].IndexOf('">')+2,($r.name[$i].IndexOf('</')-$r.name[$i].IndexOf('">')-2))
-
-    $i++
-    }
-    return $obj
-
+    return $r
 }
-
-#Needs work
-function Get-AppVolumeCurrentAttachements
+function Set-AppVolumesWritableVolumeDisabled
 {
   <#
-  Needs work
+  .DESCRIPTION
+   This function is used to disable a writable volume.
+
+  .PARAMETER AppID
+   This tells the API which writable volume you wish to modify. If you do not know the ID use Get-AppVolumesWritableVolumes
+  
+  #>
+  
+  param(
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$AppID
+
+    )
+
+  try{
+      $r = (Invoke-WebRequest -WebSession $Login -Method Post -Uri "http://$server/cv_api/writables/enable?volumes%5B%5D=$AppID").content
+            
+    }
+    catch
+    {
+        if ($_.Exception.Message -match '401')
+        {   
+            write-host 'An error has occurred'
+            
+        }
+
+    }
+    return $r
+  
+}
+function Get-AppVolumeCurrentAttachments
+{
+  <#
+    .DESCRIPTION
+   This function lists the curently attached appstacks and the entity they are attached to.
+
+  .PARAMETER AppID
+  This tells the API which writable volume you wish to modify. If you do not know the ID use Get-AppVolumes
+  
   #>
   param(
     [parameter(Mandatory=$true)]
@@ -138,32 +226,55 @@ function Get-AppVolumeCurrentAttachements
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
     }
 
-    $obj = New-Object System.Object
-    $i=0
-    while ($i -ne $r.name.Length){
-    
-    $obj | Add-Member –Type NoteProperty –Name User[$i] –Value $r.name[$i].Substring($r.name[$i].IndexOf('">')+2,($r.name[$i].IndexOf('</')-$r.name[$i].IndexOf('">')-2))
-    $obj | Add-Member –Type NoteProperty –Name User[$i] –Value $r.entity
+    #Create Table object
+    $table = New-Object system.Data.DataTable 'System Messages'
 
-    $i++
-    }
-    return $r
+    #Define Columns
+    $col1 = New-Object system.Data.DataColumn Name,([string])
+    $col2 = New-Object system.Data.DataColumn EntityType,([string])
+
+    #Add the Columns
+    $table.columns.add($col1)
+    $table.columns.add($col2)
+
+    foreach ($message in $r){
+      
+
+        #Create a row
+        $row = $table.NewRow()
+
+        #Enter data in the row
+        $row.Name = $r.name.Substring($r.name.IndexOf('">')+2,($r.name.IndexOf('</')-$r.name.IndexOf('">')-2))
+        $row.EntityType = $r.entity_type
+        
+        #Add the row to the table
+        $table.Rows.Add($row)
+
+
+        $i++
+
+
+        }
+
+    return $table
 
 }
-
-#Haven't Started
-function Set-AppVolumesWritableVolumeEnabled
+function Get-AppVolumeAssignments
 {
   <#
+  .DESCRIPTION
+   This function lists the assignments of a specific appstack
 
+  .PARAMETER AppID
+  This tells the API which writable volume you wish to modify. If you do not know the ID use Get-AppVolumes
+  
   #>
-
   param(
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -171,40 +282,62 @@ function Set-AppVolumesWritableVolumeEnabled
 
     )
 
-  try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/writables/$AppID").Content | ConvertFrom-Json).writable
+    try{
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks/$AppID/assignments").Content | ConvertFrom-Json)
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
     }
-    return $r
+    
+    
+    #Create Table object
+    $table = New-Object system.Data.DataTable 'System Messages'
+
+    #Define Columns
+    $col1 = New-Object system.Data.DataColumn Name,([string])
+    $col2 = New-Object system.Data.DataColumn EntityType,([string])
+
+    #Add the Columns
+    $table.columns.add($col1)
+    $table.columns.add($col2)
+
+    $i=0
+
+    foreach ($message in $r){
+      
+
+        #Create a row
+        $row = $table.NewRow()
+
+        #Enter data in the row
+        $row.Name = $r.name[$i].Substring($r.name[$i].IndexOf('">')+2,($r.name[$i].IndexOf('</')-$r.name[$i].IndexOf('">')-2))
+        $row.EntityType = $r.entity_type[$i] 
+
+        #Add the row to the table
+        $table.Rows.Add($row)
+
+
+        $i++
+
+
+        }
+
+    return $table
+    
 }
-
-#Haven't Started
-function Set-AppVolumesWritableVolumeDisabled
-{
-  <#
-
-  #>
-}
-
-
-<#
-    -----------------------------------------------------------------------------
-    Complete
-    -----------------------------------------------------------------------------
-#>
 function Get-AppVolumes
 {
   <#
-
+  .DESCRIPTION
+   This function is used list all appvolumes known by the AppVolumes manager.
+   
   #>
     try{
       $results = (Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks").Content | ConvertFrom-Json
@@ -213,16 +346,18 @@ function Get-AppVolumes
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
            
         }
     }
     return $results
 }
-
 function Get-AppVolumesLicense
 {
   <#
+  .DESCRIPTION
+   This function lists all licensing information about the AppVolumes Manager
+
 
   #>
     try{
@@ -233,7 +368,7 @@ function Get-AppVolumesLicense
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
     }
@@ -271,6 +406,8 @@ function Get-AppVolumesLicense
 function Get-AppVolumesADSettings
 {
   <#
+  .DESCRIPTION
+   This function lists the Actve Directories that AppVolumes is connected to as well as the user associated with each domain.
 
   #>
 
@@ -282,7 +419,7 @@ function Get-AppVolumesADSettings
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
     }
@@ -294,7 +431,8 @@ function Get-AppVolumesADSettings
 function Get-AppVolumesCurrentAdminGroup
 {
   <#
-
+  .DESCRIPTION
+   This function lists the current administrator group within the AppVolumes interface.
   #>
   
   try{
@@ -305,7 +443,7 @@ function Get-AppVolumesCurrentAdminGroup
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
     }
@@ -316,7 +454,8 @@ function Get-AppVolumesCurrentAdminGroup
 function Get-AppVolumesvCenterUser
 {
   <#
-
+  .DESCRIPTION
+   This function lists the vCenter connection information that AppVolumes is using
   #>
 
   try{
@@ -327,7 +466,7 @@ function Get-AppVolumesvCenterUser
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
     }
@@ -337,8 +476,10 @@ function Get-AppVolumesvCenterUser
 function Get-AppVolumesDatastores
 {
   <#
-
+  .DESCRIPTION
+   This function lists all datastores that AppVolumes knows about.
   #>
+  
 
   try{
       $r = (Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/datastores").Content | ConvertFrom-Json
@@ -348,7 +489,7 @@ function Get-AppVolumesDatastores
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -358,8 +499,13 @@ function Get-AppVolumesDatastores
 }
 function Get-AppVolumeDetails
 {
-  <#
+  <#  
+  .DESCRIPTION
+   If given a specific appstack, this function will list details about the specifed appstack
 
+  .PARAMETER AppID
+  This is the ID of the appstack you would like to know more about.  If you do not know the ID use Get-AppVolumes
+  
   #>
   param(
     [parameter(Mandatory=$true)]
@@ -376,7 +522,7 @@ function Get-AppVolumeDetails
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -387,7 +533,12 @@ function Get-AppVolumeDetails
 function Get-AppVolumeApps
 {
   <#
+  .DESCRIPTION
+   If given a specific appstack, this function will list the apps that were captured in the specified appstack.
 
+  .PARAMETER AppID
+  This is the ID of the appstack you would like to know more about.  If you do not know the ID use Get-AppVolumes
+  
   #>
   param(
     [parameter(Mandatory=$true)]
@@ -404,7 +555,7 @@ function Get-AppVolumeApps
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -415,7 +566,12 @@ function Get-AppVolumeApps
 function Get-AppVolumeFileLocation
 {
   <#
+  .DESCRIPTION
+   If given a specific appstack, this function will list the location of the appstack on the datastore
 
+  .PARAMETER AppID
+  This is the ID of the appstack you would like to know more about.  If you do not know the ID use Get-AppVolumes
+  
   #>
   param(
     [parameter(Mandatory=$true)]
@@ -432,7 +588,7 @@ function Get-AppVolumeFileLocation
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -443,7 +599,10 @@ function Get-AppVolumeFileLocation
 function Get-AppVolumesWritableVolumes
 {
   <#
+  .DESCRIPTION
+   This function will list all writable volumes in the environment
 
+  
   #>
 
   try{
@@ -454,7 +613,7 @@ function Get-AppVolumesWritableVolumes
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -464,7 +623,12 @@ function Get-AppVolumesWritableVolumes
 function Get-AppVolumesWritableVolumeDetails
 {
   <#
+  .DESCRIPTION
+   If given a specific writable volume, this function will list details about the specifed writable volume
 
+  .PARAMETER AppID
+  This is the ID of the appstack you would like to know more about.  If you do not know the ID use Get-AppVolumesWritableVolumes
+  
   #>
 
    param(
@@ -482,7 +646,7 @@ function Get-AppVolumesWritableVolumeDetails
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -493,6 +657,8 @@ function Get-AppVolumesWritableVolumeDetails
 function Get-AppVolumesAttachments
 {
   <#
+  .DESCRIPTION
+   This function will list all current appstack attachments
 
   #>
 
@@ -504,7 +670,7 @@ function Get-AppVolumesAttachments
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -515,7 +681,9 @@ function Get-AppVolumesAttachments
 function Get-AppVolumesCurrentAssignments
 {
   <#
-  Needs HTML formatting work
+   .DESCRIPTION
+   This function will list all current appstack assignments 
+
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/assignments").Content | ConvertFrom-Json).assignments
@@ -525,7 +693,7 @@ function Get-AppVolumesCurrentAssignments
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -535,7 +703,9 @@ function Get-AppVolumesCurrentAssignments
 function Get-AppVolumesApps
 {
   <#
-  Needs formatting work
+   .DESCRIPTION
+   This function will list all applications that have been captured by the AppVolumes Manager. You can use this function to find which appstack contains the specific app you are looking for.
+ 
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/applications").Content | ConvertFrom-Json).applications
@@ -545,7 +715,7 @@ function Get-AppVolumesApps
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -556,7 +726,12 @@ function Get-AppVolumesApps
 function Get-AppVolumesAppDetails
 {
   <#
-  Seems to be unnecessary with Get-AppVolumesApps
+   .DESCRIPTION
+   If given a specific application, this function will list details about the specifed application
+
+  .PARAMETER AppID
+  This is the ID of the appstack you would like to know more about.  If you do not know the ID use Get-AppVolumesApps
+  
   #>
 
   param(
@@ -573,7 +748,7 @@ function Get-AppVolumesAppDetails
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -584,7 +759,9 @@ function Get-AppVolumesAppDetails
 function Get-AppVolumesOnlineEntities
 {
   <#
-  Needs formatting work
+   .DESCRIPTION
+   This function will list all AppVolumes agents that are currently online
+
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/online_entities").Content | ConvertFrom-Json).online.records
@@ -594,7 +771,7 @@ function Get-AppVolumesOnlineEntities
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -606,7 +783,9 @@ function Get-AppVolumesOnlineEntities
 function Get-AppVolumesUsers
 {
   <#
-  
+  .DESCRIPTION
+   This function will list all users who have logged into a managed computer or have had a volume assigned to them
+
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/users").Content | ConvertFrom-Json)
@@ -616,7 +795,7 @@ function Get-AppVolumesUsers
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -628,7 +807,8 @@ function Get-AppVolumesUsers
 function Get-AppVolumesAgents
 {
   <#
-
+   .DESCRIPTION
+   This function will list all known AppVolumes agents
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/computers").Content | ConvertFrom-Json)
@@ -638,7 +818,7 @@ function Get-AppVolumesAgents
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -650,7 +830,8 @@ function Get-AppVolumesAgents
 function Get-AppVolumesGroups
 {
   <#
-
+   .DESCRIPTION
+   This function will list all Groups that have been assigned an appstack
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/groups").Content | ConvertFrom-Json).groups
@@ -660,7 +841,7 @@ function Get-AppVolumesGroups
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -672,7 +853,8 @@ function Get-AppVolumesGroups
 function Get-AppVolumesOUs
 {
   <#
-
+   .DESCRIPTION
+   This function will list all OUs that have been assigned an appstack
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/org_units").Content | ConvertFrom-Json).org_units
@@ -682,7 +864,7 @@ function Get-AppVolumesOUs
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -694,7 +876,8 @@ function Get-AppVolumesOUs
 function Get-AppVolumesMachines
 {
   <#
-
+  .DESCRIPTION
+  This function will list all machines that have been assigned an appstack
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/machines").Content | ConvertFrom-Json).machines
@@ -704,7 +887,7 @@ function Get-AppVolumesMachines
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -716,7 +899,8 @@ function Get-AppVolumesMachines
 function Get-AppVolumesStorage
 {
   <#
-
+  .DESCRIPTION
+  This function will list all storage known by the AppVolumes Manager
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/storages").Content | ConvertFrom-Json).storages
@@ -726,7 +910,7 @@ function Get-AppVolumesStorage
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -737,7 +921,8 @@ function Get-AppVolumesStorage
 function Get-AppVolumesStorageGroups
 {
   <#
-
+  .DESCRIPTION
+  This function will list all storage groups in AppVolumes
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/storage_groups").Content | ConvertFrom-Json).storage_groups
@@ -747,7 +932,7 @@ function Get-AppVolumesStorageGroups
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -759,25 +944,29 @@ function Get-AppVolumesStorageGroups
 function Get-AppVolumesStorageGroupDetails
 {
   <#
+  .DESCRIPTION
+  This function will provide details about a specific storage group
 
+  .PARAMETER StorageGroupID
+  The storage group you wish to know more about.  If you do not know the ID use Get-AppVolumesStorageGroups
   #>
 
   param(
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    [string]$StorageGroup
+    [string]$StorageGroupID
 
     )
 
     try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/storage_groups/$StorageGroup").Content | ConvertFrom-Json).storage_group
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/storage_groups/$StorageGroupID").Content | ConvertFrom-Json).storage_group
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -787,7 +976,8 @@ function Get-AppVolumesStorageGroupDetails
 function Get-AppVolumesLog
 {
   <#
-
+  .DESCRIPTION
+  This will return the log of the AppVolumes Manager
   #>
 
   try{
@@ -798,7 +988,7 @@ function Get-AppVolumesLog
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
@@ -808,7 +998,8 @@ function Get-AppVolumesLog
 function Get-AppVolumesSystemMessages
 {
   <#
-
+  .DESCRIPTION
+  This function will list all AppVolumes Manager System Messages
   #>
   try{
       $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/system_messages").Content | ConvertFrom-Json).allmessages.system_messages
@@ -818,7 +1009,7 @@ function Get-AppVolumesSystemMessages
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
     }
@@ -859,72 +1050,11 @@ function Get-AppVolumesSystemMessages
     return $table | Select-Object date,Event
 
 }
-
-<#
-    -----------------------------------------------------------------------------
-    Not tested
-    -----------------------------------------------------------------------------
-#>
-function Start-AppVolumesStorageReplication
-{
-  <#
-
-  #>
-
-  param(
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    [string]$StorageGroup
-
-    )
-
-    try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks/storage_groups/$StorageGroup/replicate").Content | ConvertFrom-Json)
-            
-    }
-    catch
-    {
-        if ($_.Exception.Message -match '401')
-        {   
-            Connect-AppVolumes
-            
-        }
-
-    }
-    return $r
-}
-function Add-AppVolumesStoragetoGroup
-{
-  <#
-
-  #>
-  param(
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    [string]$StorageID
-
-    )
-
-    try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks/storage_groups/$StorageID/import").Content | ConvertFrom-Json)
-            
-    }
-    catch
-    {
-        if ($_.Exception.Message -match '401')
-        {   
-            Connect-AppVolumes
-            
-        }
-
-    }
-    return $r
-
-}
 function Get-AppVolumesPendingActions
 {
   <#
-
+  .DESCRIPTION
+  This function will list all pending actions
   #>
 
    try{
@@ -935,11 +1065,78 @@ function Get-AppVolumesPendingActions
     {
         if ($_.Exception.Message -match '401')
         {   
-            Connect-AppVolumes
+            write-host 'An error occurred'
             
         }
 
     }
     return $r
 }
+function Start-AppVolumesStorageReplication
+{
+  <#
+  .DESCRIPTION
+  This will replicate the appstacks to other datastores within a storage group as defined by the policy selected when the storage group was created in the UI.
+
+  .PARAMETER StorageGroupID
+  This is the ID of the storage group you wish to replicate. If you do not know the ID use the function Get-AppVolumesStorageGroups
+  #>
+
+  param(
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$StorageGroupID
+
+    )
+
+    try{
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Post -Uri "http://$server/cv_api/storage_groups/$StorageGroupID/replicate").Content | ConvertFrom-Json)
+            
+    }
+    catch
+    {
+        if ($_.Exception.Message -match '401')
+        {   
+            write-host 'An error occurred'
+            
+        }
+
+    }
+    return $r
+}
+
+function Import-AppVolumestoStorageGroup
+{
+  <#
+  .DESCRIPTION
+  This function will import AppVolumes on an existing datastore into the specified storage group
+
+  .PARAMETER StorageGroupID
+  This is the ID of the storage group you wish to replicate. If you do not know the ID use the function Get-AppVolumesStorageGroups
+  
+  #>
+  param(
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$StorageID
+
+    )
+
+    try{
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Post -Uri "http://$server/cv_api/appstacks/storage_groups/$StorageID/import").Content | ConvertFrom-Json)
+            
+    }
+    catch
+    {
+        if ($_.Exception.Message -match '401')
+        {   
+            write-host 'An error occurred'
+            
+        }
+
+    }
+    return $r
+
+}
+
 
