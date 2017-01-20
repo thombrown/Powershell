@@ -1,4 +1,9 @@
-﻿# Check to make sure both arguments exist
+#Original script was written by JD Green - http://jdgreen.io/rolling-reboot-vsphere-cluster-powercli/
+#Script was modified to support VMware Horizon Instant Clones and VSAN by Thomas Brown
+
+
+ 
+# Check to make sure both arguments exist
 if ($args.count -ne 2) {
 Write-Host "Usage: reboot-vmcluster.ps1 <vCenter> <cluster>"
 exit
