@@ -64,7 +64,7 @@ function Set-AppVolumeAssignment
     )
   
     try{
-      $r = (Invoke-RestMethod -WebSession $Login -Method Post -Uri "http://$server/cv_api/assignments?action_type=$AssignmentType&id=$AppID&assignments%5B0%5D%5Bentity_type%5D=$entitytype&assignments%5B0%5D%5Bpath%5D=$entity&rtime=($instant.toString())&mount_prefix=")
+      $r = (Invoke-RestMethod -WebSession $Login -Method Post -Uri "https://$server/cv_api/assignments?action_type=$AssignmentType&id=$AppID&assignments%5B0%5D%5Bentity_type%5D=$entitytype&assignments%5B0%5D%5Bpath%5D=$entity&rtime=($instant.toString())&mount_prefix=")
       if ($r.warning){$r = 'The entity needs to be in Directory Services format, Ex: CN=vi-admin,CN=users,DC=lab,DC=local'}
     }
     catch
@@ -119,7 +119,7 @@ function Connect-AppVolumes
       password = $password
     }
     try{
-      Invoke-RestMethod -SessionVariable Login -Method Post -Uri "http://$server/cv_api/sessions" -Body $body
+      Invoke-RestMethod -SessionVariable Login -Method Post -Uri "https://$server/cv_api/sessions" -Body $body
     }
     Catch{
 
@@ -153,7 +153,7 @@ function Set-AppVolumesWritableVolumeEnabled
     )
 
   try{
-      $r = (Invoke-WebRequest -WebSession $Login -Method Post -Uri "http://$server/cv_api/writables/disable?volumes%5B%5D=$AppID").content
+      $r = (Invoke-WebRequest -WebSession $Login -Method Post -Uri "https://$server/cv_api/writables/disable?volumes%5B%5D=$AppID").content
             
     }
     catch
@@ -186,7 +186,7 @@ function Set-AppVolumesWritableVolumeDisabled
     )
 
   try{
-      $r = (Invoke-WebRequest -WebSession $Login -Method Post -Uri "http://$server/cv_api/writables/enable?volumes%5B%5D=$AppID").content
+      $r = (Invoke-WebRequest -WebSession $Login -Method Post -Uri "https://$server/cv_api/writables/enable?volumes%5B%5D=$AppID").content
             
     }
     catch
@@ -219,14 +219,14 @@ function Get-AppVolumeCurrentAttachments
     )
 
     try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks/$AppID/attachments").Content | ConvertFrom-Json)
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/appstacks/$AppID/attachments").Content | ConvertFrom-Json)
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -283,14 +283,14 @@ function Get-AppVolumeAssignments
     )
 
     try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks/$AppID/assignments").Content | ConvertFrom-Json)
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/appstacks/$AppID/assignments").Content | ConvertFrom-Json)
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -340,13 +340,13 @@ function Get-AppVolumes
    
   #>
     try{
-      $results = (Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks").Content | ConvertFrom-Json
+      $results = (Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/appstacks").Content | ConvertFrom-Json
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
            
         }
     }
@@ -361,14 +361,14 @@ function Get-AppVolumesLicense
 
   #>
     try{
-      $license = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/license").Content | ConvertFrom-Json).license
-      $license_usage = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/license_usage").Content | ConvertFrom-Json).licenses
+      $license = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/license").Content | ConvertFrom-Json).license
+      $license_usage = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/license_usage").Content | ConvertFrom-Json).licenses
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
     }
@@ -412,14 +412,14 @@ function Get-AppVolumesADSettings
   #>
 
    try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/ad_settings").Content | ConvertFrom-Json).config_ad
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/ad_settings").Content | ConvertFrom-Json).config_ad
       
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
     }
@@ -436,14 +436,14 @@ function Get-AppVolumesCurrentAdminGroup
   #>
   
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/administrator").Content | ConvertFrom-Json).current_admin
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/administrator").Content | ConvertFrom-Json).current_admin
       
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
     }
@@ -459,14 +459,14 @@ function Get-AppVolumesvCenterUser
   #>
 
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/machine_managers").Content | ConvertFrom-Json).machine_managers
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/machine_managers").Content | ConvertFrom-Json).machine_managers
       
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
     }
@@ -482,14 +482,14 @@ function Get-AppVolumesDatastores
   
 
   try{
-      $r = (Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/datastores").Content | ConvertFrom-Json
+      $r = (Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/datastores").Content | ConvertFrom-Json
       
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -515,14 +515,14 @@ function Get-AppVolumeDetails
     )
 
     try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks/$AppID").Content | ConvertFrom-Json).appstack
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/appstacks/$AppID").Content | ConvertFrom-Json).appstack
       
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -548,14 +548,14 @@ function Get-AppVolumeApps
     )
 
     try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks/$AppID/applications").Content | ConvertFrom-Json).applications
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/appstacks/$AppID/applications").Content | ConvertFrom-Json).applications
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -581,14 +581,14 @@ function Get-AppVolumeFileLocation
     )
 
     try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/appstacks/$AppID/files").Content | ConvertFrom-Json)
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/appstacks/$AppID/files").Content | ConvertFrom-Json)
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -606,14 +606,14 @@ function Get-AppVolumesWritableVolumes
   #>
 
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/writables").Content | ConvertFrom-Json).datastores.writable_volumes
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/writables").Content | ConvertFrom-Json).datastores.writable_volumes
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -639,14 +639,14 @@ function Get-AppVolumesWritableVolumeDetails
     )
 
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/writables/$VolumeID").Content | ConvertFrom-Json).writable
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/writables/$VolumeID").Content | ConvertFrom-Json).writable
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -663,14 +663,14 @@ function Get-AppVolumesAttachments
   #>
 
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/attachments").Content | ConvertFrom-Json).attachments
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/attachments").Content | ConvertFrom-Json).attachments
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -686,14 +686,14 @@ function Get-AppVolumesCurrentAssignments
 
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/assignments").Content | ConvertFrom-Json).assignments
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/assignments").Content | ConvertFrom-Json).assignments
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -708,14 +708,14 @@ function Get-AppVolumesApps
  
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/applications").Content | ConvertFrom-Json).applications
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/applications").Content | ConvertFrom-Json).applications
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -741,14 +741,14 @@ function Get-AppVolumesAppDetails
 
     )
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/applications/$AppID").Content | ConvertFrom-Json).application
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/applications/$AppID").Content | ConvertFrom-Json).application
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -764,14 +764,14 @@ function Get-AppVolumesOnlineEntities
 
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/online_entities").Content | ConvertFrom-Json).online.records
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/online_entities").Content | ConvertFrom-Json).online.records
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -788,14 +788,14 @@ function Get-AppVolumesUsers
 
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/users").Content | ConvertFrom-Json)
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/users").Content | ConvertFrom-Json)
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -811,14 +811,14 @@ function Get-AppVolumesAgents
    This function will list all known AppVolumes agents
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/computers").Content | ConvertFrom-Json)
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/computers").Content | ConvertFrom-Json)
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -834,14 +834,14 @@ function Get-AppVolumesGroups
    This function will list all Groups that have been assigned an appstack
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/groups").Content | ConvertFrom-Json).groups
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/groups").Content | ConvertFrom-Json).groups
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -857,14 +857,14 @@ function Get-AppVolumesOUs
    This function will list all OUs that have been assigned an appstack
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/org_units").Content | ConvertFrom-Json).org_units
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/org_units").Content | ConvertFrom-Json).org_units
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -880,14 +880,14 @@ function Get-AppVolumesMachines
   This function will list all machines that have been assigned an appstack
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/machines").Content | ConvertFrom-Json).machines
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/machines").Content | ConvertFrom-Json).machines
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -903,14 +903,14 @@ function Get-AppVolumesStorage
   This function will list all storage known by the AppVolumes Manager
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/storages").Content | ConvertFrom-Json).storages
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/storages").Content | ConvertFrom-Json).storages
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -925,14 +925,14 @@ function Get-AppVolumesStorageGroups
   This function will list all storage groups in AppVolumes
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/storage_groups").Content | ConvertFrom-Json).storage_groups
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/storage_groups").Content | ConvertFrom-Json).storage_groups
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -959,14 +959,14 @@ function Get-AppVolumesStorageGroupDetails
     )
 
     try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/storage_groups/$StorageGroupID").Content | ConvertFrom-Json).storage_group
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/storage_groups/$StorageGroupID").Content | ConvertFrom-Json).storage_group
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -981,14 +981,14 @@ function Get-AppVolumesLog
   #>
 
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/activity_logs").Content | ConvertFrom-Json).actlogs.logs
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/activity_logs").Content | ConvertFrom-Json).actlogs.logs
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -1002,14 +1002,14 @@ function Get-AppVolumesSystemMessages
   This function will list all AppVolumes Manager System Messages
   #>
   try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/system_messages").Content | ConvertFrom-Json).allmessages.system_messages
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/system_messages").Content | ConvertFrom-Json).allmessages.system_messages
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
     }
@@ -1058,14 +1058,14 @@ function Get-AppVolumesPendingActions
   #>
 
    try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "http://$server/cv_api/pending_activities").Content | ConvertFrom-Json).allactivities.pending_activities
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Get -Uri "https://$server/cv_api/pending_activities").Content | ConvertFrom-Json).allactivities.pending_activities
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -1090,14 +1090,14 @@ function Start-AppVolumesStorageReplication
     )
 
     try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Post -Uri "http://$server/cv_api/storage_groups/$StorageGroupID/replicate").Content | ConvertFrom-Json)
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Post -Uri "https://$server/cv_api/storage_groups/$StorageGroupID/replicate").Content | ConvertFrom-Json)
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
@@ -1123,14 +1123,14 @@ function Import-AppVolumestoStorageGroup
     )
 
     try{
-      $r = ((Invoke-WebRequest -WebSession $Login -Method Post -Uri "http://$server/cv_api/appstacks/storage_groups/$StorageID/import").Content | ConvertFrom-Json)
+      $r = ((Invoke-WebRequest -WebSession $Login -Method Post -Uri "https://$server/cv_api/appstacks/storage_groups/$StorageID/import").Content | ConvertFrom-Json)
             
     }
     catch
     {
         if ($_.Exception.Message -match '401')
         {   
-            write-host 'An error occurred'
+            Connect-AppVolumes
             
         }
 
